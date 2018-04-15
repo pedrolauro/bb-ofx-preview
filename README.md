@@ -1,4 +1,4 @@
-nubank-ofx-preview
+bb-ofx-preview
 ===
 
 Try `npm install` and then `npm start -- --help`.

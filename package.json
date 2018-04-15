@@ -1,5 +1,5 @@
 {
-  "name": "nubank-ofx-preview",
+  "name": "bb-ofx-preview",
   "version": "0.1.0",
   "description": "",
   "scripts": {
@@ -8,14 +8,14 @@
   },
   "repository": {
     "type": "git",
-    "url": "git://github.com/ravishi/nubank-ofx-preview.git"
+    "url": "git://github.com/pedrolauro/bb-ofx-preview.git"
   },
-  "author": "Dirley Rodrigues <dirley@romenor.net>",
+  "author": "Pedro Lauro <pedro.lauro@gmail.com>",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/ravishi/nubank-ofx-preview/issues"
+    "url": "https://github.com/pedrolauro/bb-ofx-preview/issues"
   },
-  "homepage": "https://github.com/ravishi/nubank-ofx-preview#readme",
+  "homepage": "https://github.com/pedrolauro/bb-ofx-preview#readme",
   "devDependencies": {
     "babel": "^6.23.0",
     "babel-cli": "^6.26.0",
