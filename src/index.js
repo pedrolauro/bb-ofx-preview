@@ -13,10 +13,16 @@ const mainCommand = {
     command: '$0',
 
     builder: yargs => yargs
-        .option('username', {
+        .option('branchID', {
             type: 'string',
-            alias: 'u',
-            description: 'Username',
+            alias: 'b',
+            description: 'Bank Branch ID',
+            demandOption: true,
+        })
+        .option('accountID', {
+            type: 'string',
+            alias: 'a',
+            description: 'Checkings ID',
             demandOption: true,
         })
         .option('password', {
@@ -58,13 +64,13 @@ const mainCommand = {
             default: null,
             normalize: true,
             description: 'Output file',
-            defaultDescription: './nubank-(hash).ofx',
+            defaultDescription: './bb-(hash).ofx',
         })
         .option('json', {
             type: 'boolean',
             alias: 'j',
             default: false,
-            description: 'Export as JSON. Changes default output to ./nubank-(hash).json',
+            description: 'Export as JSON. Changes default output to ./bb-(hash).json',
         })
         .option('detailed', {
             type: 'boolean',
@@ -112,21 +118,23 @@ async function main(options) {
         output: requestedOutputPath,
         timeout: timeoutInSeconds,
         detailed,
-        username,
+        branchID,
+        accountID,
         password: givenPassword,
     } = options;
 
     const password = (
         givenPassword !== '-' || extra.includes('no-input')
             ? givenPassword
-            : await askForPassword(username)
+            : await askForPassword(accountID)
     );
 
     const {bills, timezoneOffset} =
         await fetchBillsAndTimezoneOffset({
             timeout: timeoutInSeconds * 1000,
             headless: !extra.includes('headful'),
-            username,
+            branchID,
+            accountID,
             password,
         });
 
@@ -171,16 +179,16 @@ async function main(options) {
     return 0;
 }
 
-async function askForPassword(username) {
+async function askForPassword(accountID) {
     const {password} = await inquirer.prompt([{
         type: 'password',
         name: 'password',
-        message: `Please enter a password for user "${username}"`,
+        message: `Please enter a password for Account "${accountID}"`,
     }]);
     return password;
 }
 
-async function fetchBillsAndTimezoneOffset({username, password, timeout, headless}) {
+async function fetchBillsAndTimezoneOffset({branchID, accountID, password, timeout, headless}) {
     const browser = await puppeteer.launch({headless});
     try {
         const page = await browser.newPage();
@@ -189,7 +197,7 @@ async function fetchBillsAndTimezoneOffset({username, password, timeout, headles
 
         console.log('Logging in...');
 
-        const result = await login(page, username, password, timeout);
+        const result = await login(page, branchID, accountID, password, timeout);
         if (result.error) {
             throw new Error(`Login failed: ${result.error}`);
         }
@@ -220,42 +228,65 @@ function isBetween(dt, since, until, billState) {
 
 function defaultOutputPath(bills, format) {
     const name = objectHash(bills);
-    return `./nubank-${sh.unique(name)}.${format}`;
+    return `./bb-${sh.unique(name)}.${format}`;
 }
 
-const baseUrl = 'https://app.nubank.com.br';
+const baseUrl = 'https://www2.bancobrasil.com.br/aapf/login.jsp';
+const homeUrl = 'https://www2.bancobrasil.com.br/aapf/principal.jsp';
 
-async function login(page, username, password, timeout) {
+async function login(page, branchID, accountID, password, timeout) {
     await page.goto(baseUrl, {timeout, waitFor: 'networkidle0'});
 
-    const usernameInput = await page.waitForSelector('#username', {visible: true, timeout});
-    await usernameInput.focus();
-    await usernameInput.type(username, {delay: 58});
+    const branchIDInput = await page.waitForSelector('#dependenciaOrigem', {visible: true, timeout});
+    await branchIDInput.focus();
+    await branchIDInput.type(branchID, {delay: 58});
 
-    const passwordInput = await page.waitForSelector('form input[type="password"]', {visible: true, timeout});
+    const accountIDInput = await page.waitForSelector('#numeroContratoOrigem', {visible: true, timeout});
+    await accountIDInput.focus();
+    await accountIDInput.type(accountID, {delay: 58});
+
+    const passwordInput = await page.waitForSelector('#senhaConta', {visible: true, timeout});
     await passwordInput.focus();
     await passwordInput.type(password, {delay: 58});
 
-    const submit = await page.$('form button[type="submit"]');
+    const submit = await page.$('#botaoEntrar');
 
     let result = null;
     const onResponse = async (response) => {
         const request = response.request();
 
-        if (request.method() !== 'POST') {
+        if (request.method() !== 'POST' || request.url() !== baseUrl) {
             return;
         }
 
-        let data;
-        try {
-            data = JSON.parse(request.postData());
-        } catch (e) {
-            return;
+        console.log('$$$$$$$$$$$$$$$$$$$$ PASSOU $$$$$$$$$$$$$$$$$$$$')
+        console.log(request)
+        console.log('#####################################')
+        console.log(response)
+        console.log('11111111111111111111111111111111111')
+        console.log(response.status())
+        console.log('22222222222222222222222222222222222')
+        console.log(response.url())
+        
+        if (response.status() === 302 || response.url().indexOf(homeUrl)) !== -1 {
+            result = true;
         }
+        
+        // console.log(`postData: ${request.postData()}`)
 
-        if (data && data.grant_type && data.password) {
-            result = await response.json().catch(() => null);
-        }
+        // let data;
+        // try {
+        //     data = JSON.parse(request.postData());
+        //     console.log(`data: ${data}`)
+        // } catch (e) {
+        //     return;
+        // }
+
+        // console.log(request)
+
+        // if (data && data.grant_type && data.password) {
+        //     result = await response.json().catch(() => null);
+        // }
     };
 
     page.on('response', onResponse);
